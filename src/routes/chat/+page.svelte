@@ -7,8 +7,6 @@
 	let messages = [];
 
 	onMount(() => {
-		const saved = localStorage.getItem('messages');
-		if (saved) messages = JSON.parse(saved);
 	});
 </script>
 
