@@ -1,5 +1,3 @@
 {
-  "editor.formatOnSave": true,
-  "eslint.useFlatConfig": true,
-  "eslint.validate": ["javascript", "typescript", "svelte"]
+  "editor.formatOnSave": true
 }

@@ -19,11 +19,13 @@ export const actions: Actions = {
 			},
 			body: JSON.stringify({
 				model: 'gpt-5.4-mini',
-				messages: [{ role: 'user', content: message }]
+				messages: [{ role: 'user', content: message }],
+				temperature: 0
 			})
 		});
 
 		const result = await response.json();
-		return { result };
+		const reply = result.choices[0].message.content;
+		return { reply };
 	}
 };
