@@ -18,7 +18,7 @@ export const actions: Actions = {
 				Authorization: `Bearer ${PRIVATE_OPENAI_API_KEY}`
 			},
 			body: JSON.stringify({
-				model: 'gpt-4o-mini',
+				model: 'gpt-5.4-mini',
 				messages: [{ role: 'user', content: message }]
 			})
 		});
