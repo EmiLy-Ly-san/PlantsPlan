@@ -1,5 +1,13 @@
 import { command, form, getRequestEvent, query } from '$app/server';
 import { PRIVATE_OPENAI_API_KEY } from '$env/static/private';
+import systemPrompt from './prompt.md?raw';
+
+// Prompt:
+
+// Qui: quel role incarne le bot ?
+// Quoi: que doit il faire idéalement
+// Comment: 
+// Ne pas faire:
 
 type Message = {
 	role: 'system' | 'user' | 'assistant';
@@ -8,7 +16,7 @@ type Message = {
 
 const SYSTEM_PROMPT: Message = {
 	role: 'system',
-	content: 'You are a helpful assistant that can answer questions and help with tasks.'
+	content: systemPrompt
 };
 
 const COOKIE_NAME = 'messages';

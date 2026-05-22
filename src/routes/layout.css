@@ -1,2 +1,14 @@
+@plugin '@tailwindcss/typography';
 @plugin '@tailwindcss/forms';
 @import 'tailwindcss';
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	min-height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	justify-content: stretch;
+}
