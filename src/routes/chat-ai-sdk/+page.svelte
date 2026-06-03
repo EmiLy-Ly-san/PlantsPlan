@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { FIRST_NAME } from '$env/static/private';
 	import { Chat } from '@ai-sdk/svelte';
 	import { marked } from 'marked';
 
@@ -14,7 +13,7 @@
 </script>
 
 <header>
-	<h1>ECV Chat (AI SDK) / {FIRST_NAME}</h1>
+	<h1>ECV Chat (AI SDK)</h1>
 </header>
 
 <main>
