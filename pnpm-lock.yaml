@@ -20,6 +20,9 @@ importers:
       marked:
         specifier: ^18.0.4
         version: 18.0.4
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@eslint/compat':
         specifier: ^2.0.4

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { FIRST_NAME } from '$env/static/private';
 	import { Chat } from '@ai-sdk/svelte';
 	import { marked } from 'marked';
 
@@ -13,16 +14,25 @@
 </script>
 
 <header>
-	<h1>ECV Chat (AI SDK)</h1>
+	<h1>ECV Chat (AI SDK) / {FIRST_NAME}</h1>
 </header>
 
 <main>
+	<!-- <pre>{JSON.stringify(chat.messages, null, 2)}</pre> -->
+
 	<ul class="messages">
 		{#each chat.messages as message (message.id)}
 			<li class="message {message.role} prose">
 				{#each message.parts as part, i (i)}
 					{#if part.type === 'text'}
 						{@html marked.parse(part.text)}
+					{:else}
+						<details class="tool">
+							<summary>
+								Tool
+							</summary>
+							<pre>{JSON.stringify(part, null, 2)}</pre>
+						</details>
 					{/if}
 				{/each}
 			</li>
@@ -85,6 +95,34 @@
 			}
 		}
 	}
+
+	/* details.tool {
+		border: 1px solid #ddd;
+		border-radius: 0.25rem;
+		padding: 0.5rem 0.75rem;
+		background: #fafafa;
+		font-size: 0.875rem;
+
+		summary {
+			cursor: pointer;
+			display: flex;
+			gap: 0.5rem;
+			align-items: center;
+
+			.state {
+				color: #888;
+				font-size: 0.8em;
+			}
+		}
+
+		pre {
+			background: white;
+			padding: 0.5rem;
+			border-radius: 0.25rem;
+			overflow-x: auto;
+			margin: 0.25rem 0 0.5rem;
+		}
+	} */
 
 	form {
 		display: grid;
