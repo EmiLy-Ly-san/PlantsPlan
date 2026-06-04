@@ -11,7 +11,9 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"build:vectors": "tsx scripts/build-vectors.ts",
+		"search": "tsx scripts/search.ts"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^2.0.4",
@@ -22,6 +24,7 @@
 		"@tailwindcss/forms": "^0.5.11",
 		"@tailwindcss/typography": "^0.5.19",
 		"@tailwindcss/vite": "^4.2.2",
+		"@types/better-sqlite3": "^7.6.13",
 		"@types/node": "^22",
 		"eslint": "^10.2.0",
 		"eslint-config-prettier": "^10.1.8",
@@ -33,6 +36,7 @@
 		"svelte": "^5.55.2",
 		"svelte-check": "^4.4.6",
 		"tailwindcss": "^4.2.2",
+		"tsx": "^4.22.4",
 		"typescript": "^6.0.2",
 		"typescript-eslint": "^8.58.1",
 		"vite": "^8.0.7"
@@ -41,7 +45,9 @@
 		"@ai-sdk/openai": "^3.0.64",
 		"@ai-sdk/svelte": "^4.0.187",
 		"ai": "^6.0.187",
+		"better-sqlite3": "^12.10.0",
 		"marked": "^18.0.4",
+		"sqlite-vec": "^0.1.9",
 		"zod": "^4.4.3"
 	}
 }

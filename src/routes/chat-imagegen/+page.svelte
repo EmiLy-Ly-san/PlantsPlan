@@ -1,38 +1,52 @@
 <script lang="ts">
-	import { FIRST_NAME } from '$env/static/private';
 	import { Chat } from '@ai-sdk/svelte';
+	import { DefaultChatTransport, type UIMessage } from 'ai';
 	import { marked } from 'marked';
+	import type { ChatTools } from '../api/chat-imagegen/+server';
 
-	const chat = new Chat({});
+	type Message = UIMessage<never, never, ChatTools>;
+
+	const chat = new Chat<Message>({
+		transport: new DefaultChatTransport({ api: '/api/chat-imagegen' })
+	});
+
 	let input = $state('');
+	let files = $state<FileList | undefined>();
+	let fileInput: HTMLInputElement;
 
 	function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
-		chat.sendMessage({ text: input });
+		chat.sendMessage({ text: input, files });
 		input = '';
+		files = undefined;
+		fileInput.value = '';
 	}
 </script>
 
 <header>
-	<h1>ECV Chat (AI SDK) / {FIRST_NAME}</h1>
+	<h1>Chat (image generation)</h1>
 </header>
 
 <main>
-	<!-- <pre>{JSON.stringify(chat.messages, null, 2)}</pre> -->
 
+	<details>
+		<summary>Messages</summary>
+		<pre>{JSON.stringify(chat.messages, null, 2)}</pre>
+	</details>
 	<ul class="messages">
 		{#each chat.messages as message (message.id)}
 			<li class="message {message.role} prose">
 				{#each message.parts as part, i (i)}
 					{#if part.type === 'text'}
 						{@html marked.parse(part.text)}
-					{:else}
-						<details class="tool">
-							<summary>
-								Tool
-							</summary>
-							<pre>{JSON.stringify(part, null, 2)}</pre>
-						</details>
+					{:else if part.type === 'file' && part.mediaType?.startsWith('image/')}
+						<img src={part.url} alt={part.filename} />
+					{:else if part.type === 'tool-image_generation'}
+						{#if part.state === 'output-available'}
+							<img src={`data:image/png;base64,${part.output.result}`} alt="generated" />
+						{:else}
+							<span>Generating image…</span>
+						{/if}
 					{/if}
 				{/each}
 			</li>
@@ -40,6 +54,13 @@
 	</ul>
 
 	<form onsubmit={handleSubmit}>
+		<input
+			bind:this={fileInput}
+			type="file"
+			accept="image/*"
+			multiple
+			onchange={(e) => (files = e.currentTarget.files ?? undefined)}
+		/>
 		<input
 			bind:value={input}
 			name="message"
@@ -70,7 +91,6 @@
 		flex: 1;
 		width: 100%;
 		max-width: 960px;
-
 		justify-content: stretch;
 	}
 
@@ -93,41 +113,18 @@
 				background-color: #f0f0f0;
 				align-self: flex-end;
 			}
-		}
-	}
 
-	/* details.tool {
-		border: 1px solid #ddd;
-		border-radius: 0.25rem;
-		padding: 0.5rem 0.75rem;
-		background: #fafafa;
-		font-size: 0.875rem;
-
-		summary {
-			cursor: pointer;
-			display: flex;
-			gap: 0.5rem;
-			align-items: center;
-
-			.state {
-				color: #888;
-				font-size: 0.8em;
+			img {
+				max-width: 100%;
+				border-radius: 0.25rem;
 			}
 		}
-
-		pre {
-			background: white;
-			padding: 0.5rem;
-			border-radius: 0.25rem;
-			overflow-x: auto;
-			margin: 0.25rem 0 0.5rem;
-		}
-	} */
+	}
 
 	form {
 		display: grid;
 		width: 100%;
-		grid-template-columns: 1fr auto auto;
+		grid-template-columns: auto 1fr auto auto;
 		gap: 1rem;
 		position: sticky;
 		bottom: 0;
