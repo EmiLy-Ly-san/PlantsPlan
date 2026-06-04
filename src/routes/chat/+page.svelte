@@ -1,4 +1,5 @@
 <script lang="ts">
+// test commit
 	import { getChat, sendMessage, clearChat } from './chat.remote';
   import { marked } from 'marked';
 
