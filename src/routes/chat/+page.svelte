@@ -88,104 +88,85 @@
 	}
 </script>
 
-<header>
-	<h1>ECV Chat</h1>
-</header>
+<div class="min-h-screen bg-[#0D1624] px-10 py-8 pb-40 text-white">
+	<h1 class="mb-8 text-4xl font-bold tracking-tight text-white">Chat</h1>
 
-<main>
-	<ul class="messages">
-		{#each messages as message}
-			<li class="message {message.role} prose">
-				{@html marked.parse(message.content)}
-			</li>
-		{/each}
+	{#each messages as message}
+		<div class={`mb-5 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+			<div
+				class={`max-w-155 rounded-2xl pb-2 pr-3 pl-3 shadow-lg ${
+					message.role === 'user'
+						? 'bg-[#245a9b] text-white'
+						: 'bg-[#172234] text-slate-100'
+				}`}
+			>
+				<span
+					class={`mb-2 block text-xs font-semibold uppercase tracking-wider ${
+						message.role === 'user' ? 'text-blue-100' : 'text-blue-300'
+					}`}
+				>
+				</span>
 
-		{#if isLoading}
-			<li class="message assistant prose">
-				<p>Je réfléchis...</p>
-			</li>
-		{/if}
-	</ul>
+				{#if message.role === 'assistant'}
+					<div class="prose prose-invert max-w-none leading-relaxed">
+						{@html marked.parse(message.content)}
+					</div>
+				{:else}
+					<p class="leading-relaxed">
+						{message.content}
+					</p>
+				{/if}
+			</div>
+		</div>
+	{/each}
 
-	{#if errorMessage}
-		<p class="error">{errorMessage}</p>
+	{#if isLoading}
+		<div class="mb-5 flex justify-start">
+			<div class="max-w-155 rounded-2xl bg-[#172234] px-3 pb-2 text-slate-100 shadow-lg">
+				<p class="leading-relaxed">Je réfléchis...</p>
+			</div>
+		</div>
 	{/if}
 
-	<form onsubmit={handleSubmit}>
-		<input
-			bind:value={message}
-			name="message"
-			type="text"
-			placeholder="Ask me anything..."
-			required
-			minlength="1"
-			autocomplete="off"
-		/>
+	{#if errorMessage}
+		<p class="fixed right-10 bottom-28 left-10 z-10 rounded-xl bg-red-500/10 px-4 py-3 text-red-300">
+			{errorMessage}
+		</p>
+	{/if}
 
-		<button type="submit" disabled={isLoading}>
+	<form
+		class="fixed right-10 bottom-8 left-10 z-10 flex gap-3 rounded-2xl bg-[#111C2D] p-4"
+		onsubmit={handleSubmit}
+	>
+		<label class="flex flex-1 flex-col gap-2">
+			<span class="text-sm font-medium text-slate-300">Message</span>
+
+			<input
+				class="rounded-xl border border-white/10 bg-[#0B1220] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
+				bind:value={message}
+				name="message"
+				type="text"
+				required
+				minlength="1"
+				autocomplete="off"
+				placeholder="Écris ton message ici..."
+			/>
+		</label>
+
+		<button
+			class="mt-7 rounded-xl bg-[#00949d] px-6 py-3 font-semibold text-white shadow-lg shadow-[#72d3cf]/25 hover:bg-[#00849a] disabled:cursor-not-allowed disabled:opacity-50"
+			type="submit"
+			disabled={isLoading}
+		>
 			{isLoading ? 'Sending...' : 'Send'}
 		</button>
 
-		<button type="button" onclick={clearChat}>
+		<button
+			class="mt-7 w-fit rounded-lg px-3 text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-300"
+			type="button"
+			onclick={clearChat}
+		>
 			Clear
 		</button>
 	</form>
-</main>
-
-<style>
-	header {
-		padding: 1rem;
-		background-color: black;
-		color: white;
-	}
-
-	main {
-		display: grid;
-		grid-template-rows: 1fr auto;
-		gap: 1rem;
-		padding: 1rem;
-		flex: 1;
-		justify-content: stretch;
-	}
-
-	ul.messages {
-		list-style: none;
-		padding: 0;
-		margin: 0 auto;
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-		max-width: 960px;
-		width: 100%;
-
-		li {
-			padding: 1rem;
-			border-radius: 0.5rem;
-			background-color: white;
-			max-width: min(65ch, 80%);
-
-			&.user {
-				background-color: #f0f0f0;
-				align-self: flex-end;
-			}
-		}
-	}
-
-	form {
-		display: grid;
-		grid-template-columns: 1fr auto auto;
-		gap: 1rem;
-		position: sticky;
-		bottom: 0;
-		padding: 1rem;
-		background: rgba(255, 255, 255, 0.1);
-		backdrop-filter: blur(10px);
-		border-top: 1px solid rgba(255, 255, 255, 0.2);
-	}
-
-	.error {
-		max-width: 960px;
-		margin: 0 auto;
-		color: crimson;
-	}
-</style>
+</div>
