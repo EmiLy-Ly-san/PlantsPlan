@@ -139,14 +139,34 @@ function detectSensitiveMessage(message: string) {
 	return null;
 }
 
+// Nettoie les textes avant de les sauvegarder dans les cookies
+function sanitizeText(value?: string) {
+	if (!value) return undefined;
+
+	return value
+		.trim()
+		.slice(0, 80)
+		.replace(/[<>]/g, '');
+}
+
 // Fonction appelée par le tool saveUserPlant
 function saveUserPlant({ name, room }: { name: string; room?: string }) {
 	const plants = readPlants();
 
+	const cleanName = sanitizeText(name);
+	const cleanRoom = sanitizeText(room);
+
+	if (!cleanName) {
+		return {
+			success: false,
+			message: 'Le nom de la plante est obligatoire.'
+		};
+	}
+
 	const newPlant: Plant = {
 		id: crypto.randomUUID(),
-		name,
-		room,
+		name: cleanName,
+		room: cleanRoom,
 		createdAt: new Date().toISOString()
 	};
 
@@ -156,7 +176,7 @@ function saveUserPlant({ name, room }: { name: string; room?: string }) {
 	return {
 		success: true,
 		plant: newPlant,
-		message: `${name} a bien été ajoutée aux plantes de l'utilisateur.`
+		message: `${cleanName} a bien été ajoutée aux plantes de l'utilisateur.`
 	};
 }
 
