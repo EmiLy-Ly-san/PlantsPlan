@@ -33,8 +33,20 @@ const SYSTEM_PROMPT: Message = {
 const PLANTS_COOKIE_NAME = 'plants';
 const MAX_MESSAGE_LENGTH = 1000;
 
+//  si le message évoque un risque suicidaire ou d’automutilation
+const SELF_HARM_RESPONSE =
+	"Je suis vraiment désolé que tu ressentes ça. Si tu es en danger immédiat ou si tu penses pouvoir te faire du mal, appelle les urgences ou une personne de confiance près de toi tout de suite. En France, tu peux aussi appeler le 3114, disponible 24h/24 et 7j/7. Tu n’as pas à gérer ça seul·e.";
+
+//  si le message contient du contenu sexuel
+const SEXUAL_RESPONSE =
+	"Je ne peux pas répondre à ce type de demande. Je peux par contre t’aider avec une plante, un diagnostic ou des conseils d’entretien.";
+
+//  si l’utilisateur insulte le bot
+const INSULT_RESPONSE =
+	"Je peux t’aider, mais je vais rester sur un échange respectueux. Si tu veux, décris-moi le souci avec ta plante et je t’aide à trouver une solution.";
+
 // Tool disponible pour l'IA
-// Pour l'instant, on garde seulement la sauvegarde d'une plante
+//  seulement la sauvegarde d'une plante
 const tools = [
 	{
 		type: 'function',
@@ -68,7 +80,7 @@ function readPlants(): Plant[] {
 	return raw ? (JSON.parse(raw) as Plant[]) : [];
 }
 
-// Sauvegarde la collection de plantes dans les cookies
+// Sauvegarde la collectiones dans les cookies
 function writePlants(plants: Plant[]) {
 	const { cookies } = getRequestEvent();
 
@@ -78,6 +90,53 @@ function writePlants(plants: Plant[]) {
 		sameSite: 'lax',
 		maxAge: 60 * 60 * 24 * 30
 	});
+}
+
+// Détection  de messages sensibles
+
+function detectSensitiveMessage(message: string) {
+	const lower = message.toLowerCase();
+
+	const selfHarmWords = [
+		'je veux mourir',
+		'me suicider',
+		'suicide',
+		'envie de mourir',
+		'me faire du mal'
+	];
+
+	const sexualWords = [
+		'sexe',
+		'porno',
+		'nude',
+		'nudes',
+		'sexuel',
+		'sexuelle'
+	];
+
+	const insultWords = [
+		'connard',
+		'connasse',
+		'pute',
+		'abruti',
+		'débile',
+		'ferme ta gueule',
+		'ta gueule'
+	];
+
+	if (selfHarmWords.some((word) => lower.includes(word))) {
+		return SELF_HARM_RESPONSE;
+	}
+
+	if (sexualWords.some((word) => lower.includes(word))) {
+		return SEXUAL_RESPONSE;
+	}
+
+	if (insultWords.some((word) => lower.includes(word))) {
+		return INSULT_RESPONSE;
+	}
+
+	return null;
 }
 
 // Fonction appelée par le tool saveUserPlant
@@ -125,6 +184,15 @@ export const sendMessage = command(
 		// On bloque les messages trop longs
 		if (cleanMessage.length > MAX_MESSAGE_LENGTH) {
 			throw new Error('Message too long');
+		}
+
+		// On vérifie les cas sensibles avant d'appeler l'IA
+		const sensitiveResponse = detectSensitiveMessage(cleanMessage);
+
+		if (sensitiveResponse) {
+			return {
+				assistantMessage: sensitiveResponse
+			};
 		}
 
 		// On garde seulement les derniers messages utiles envoyés par le localStorage
