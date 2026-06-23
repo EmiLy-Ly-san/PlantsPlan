@@ -1,15 +1,21 @@
-import { command, form, getRequestEvent, query } from '$app/server';
+import { command, getRequestEvent } from '$app/server';
 import { PRIVATE_OPENAI_API_KEY } from '$env/static/private';
 import systemPrompt from './prompt.md?raw';
 
-// Prompt : qui : quel esl role incarne le bot; qioi: que doit'il faire idéaliement; comment ; ne pas faire
-
+// Message envoyé à OpenAI
 type Message = {
 	role: 'system' | 'user' | 'assistant' | 'tool';
 	content: string;
 	tool_call_id?: string;
 };
 
+// Message stocké dans le localStorage
+type ChatMessage = {
+	role: 'user' | 'assistant';
+	content: string;
+};
+
+// Plante sauvegardée dans la collection du user
 type Plant = {
 	id: string;
 	name: string;
@@ -24,9 +30,11 @@ const SYSTEM_PROMPT: Message = {
 	content: systemPrompt
 };
 
-const COOKIE_NAME = 'messages';
 const PLANTS_COOKIE_NAME = 'plants';
+const MAX_MESSAGE_LENGTH = 1000;
 
+// Tool disponible pour l'IA
+// Pour l'instant, on garde seulement la sauvegarde d'une plante
 const tools = [
 	{
 		type: 'function',
@@ -43,7 +51,7 @@ const tools = [
 					room: {
 						type: 'string',
 						description: 'Pièce où se trouve la plante, par exemple salon, chambre, cuisine.'
-					},
+					}
 				},
 				required: ['name'],
 				additionalProperties: false
@@ -52,30 +60,18 @@ const tools = [
 	}
 ];
 
-function readMessages(): Message[] {
-	const { cookies } = getRequestEvent();
-	const raw = cookies.get(COOKIE_NAME);
-	return raw ? (JSON.parse(raw) as Message[]) : [];
-}
-
-function writeMessages(messages: Message[]) {
-	const { cookies } = getRequestEvent();
-	cookies.set(COOKIE_NAME, JSON.stringify(messages), {
-		path: '/',
-		httpOnly: true,
-		sameSite: 'lax',
-		maxAge: 60 * 60 * 24 * 7
-	});
-}
-
+// Lit la collection de plantes depuis les cookies
 function readPlants(): Plant[] {
 	const { cookies } = getRequestEvent();
 	const raw = cookies.get(PLANTS_COOKIE_NAME);
+
 	return raw ? (JSON.parse(raw) as Plant[]) : [];
 }
 
+// Sauvegarde la collection de plantes dans les cookies
 function writePlants(plants: Plant[]) {
 	const { cookies } = getRequestEvent();
+
 	cookies.set(PLANTS_COOKIE_NAME, JSON.stringify(plants), {
 		path: '/',
 		httpOnly: true,
@@ -84,13 +80,8 @@ function writePlants(plants: Plant[]) {
 	});
 }
 
-function saveUserPlant({
-	name,
-	room,
-}: {
-	name: string;
-	room?: string;
-}) {
+// Fonction appelée par le tool saveUserPlant
+function saveUserPlant({ name, room }: { name: string; room?: string }) {
 	const plants = readPlants();
 
 	const newPlant: Plant = {
@@ -110,17 +101,46 @@ function saveUserPlant({
 	};
 }
 
-export const getChat = query(async () => {
-	return readMessages();
-});
-
-export const sendMessage = form(
+// Appel serveur utilisé par le front
+// Les messages du chat ne sont plus lus depuis les cookie
+// Lefront envoie le message actuel + un  historic depuis le localStorag
+export const sendMessage = command(
 	'unchecked',
-	async ({ message }: { message: string }) => {
-		const messages = readMessages();
-		messages.push({ role: 'user', content: message });
+	async ({
+		message,
+		history
+	}: {
+		message: string;
+		history: ChatMessage[];
+	}) => {
+		const cleanMessage = message.trim();
 
-		const openAiMessages = [SYSTEM_PROMPT, ...messages];
+		// On ignore les messages vides
+		if (!cleanMessage) {
+			return {
+				assistantMessage: ''
+			};
+		}
+
+		// On bloque les messages trop longs
+		if (cleanMessage.length > MAX_MESSAGE_LENGTH) {
+			throw new Error('Message too long');
+		}
+
+		// On garde seulement les derniers messages utiles envoyés par le localStorage
+		const contextMessages: Message[] = history
+			.filter((message) => message.role === 'user' || message.role === 'assistant')
+			.slice(-8)
+			.map((message) => ({
+				role: message.role,
+				content: message.content
+			}));
+
+		const openAiMessages: Message[] = [
+			SYSTEM_PROMPT,
+			...contextMessages,
+			{ role: 'user', content: cleanMessage }
+		];
 
 		const response = await fetch('https://api.openai.com/v1/chat/completions', {
 			method: 'POST',
@@ -144,6 +164,7 @@ export const sendMessage = form(
 
 		const assistantMessage = result.choices[0].message;
 
+		// Si l'IA demande à utiliser un tool
 		if (assistantMessage.tool_calls?.length) {
 			openAiMessages.push(assistantMessage);
 
@@ -153,9 +174,10 @@ export const sendMessage = form(
 
 					const toolResult = saveUserPlant({
 						name: args.name,
-						room: args.room,
+						room: args.room
 					});
 
+					// On renvoie le résultat du tool à l'IA
 					openAiMessages.push({
 						role: 'tool',
 						tool_call_id: toolCall.id,
@@ -164,6 +186,7 @@ export const sendMessage = form(
 				}
 			}
 
+			// Deuxième appel à l'IA pour formuler une réponse après le tool
 			const finalResponse = await fetch('https://api.openai.com/v1/chat/completions', {
 				method: 'POST',
 				headers: {
@@ -183,24 +206,13 @@ export const sendMessage = form(
 				throw new Error(finalResult.error?.message ?? 'Unknown API error');
 			}
 
-			messages.push({
-				role: 'assistant',
-				content: finalResult.choices[0].message.content
-			});
-		} else {
-			messages.push({
-				role: 'assistant',
-				content: assistantMessage.content
-			});
+			return {
+				assistantMessage: finalResult.choices[0].message.content
+			};
 		}
 
-		writeMessages(messages);
-
-		await getChat().refresh();
+		return {
+			assistantMessage: assistantMessage.content
+		};
 	}
 );
-
-export const clearChat = command(async () => {
-	writeMessages([]);
-	await getChat().refresh();
-});

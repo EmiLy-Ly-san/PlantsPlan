@@ -1,79 +1,191 @@
 <script lang="ts">
-	import { getChat, sendMessage, clearChat } from './chat.remote';
+	import { onMount } from 'svelte';
 	import { marked } from 'marked';
+	import { sendMessage } from './chat.remote';
 
-	const chat = getChat();
+	type ChatMessage = {
+		role: 'user' | 'assistant';
+		content: string;
+	};
 
-	const messages = $derived(await chat);
+	const STORAGE_KEY = 'plant-chat-messages';
+
+	let messages = $state<ChatMessage[]>([]);
+	let message = $state('');
+	let isLoading = $state(false);
+	let errorMessage = $state('');
+
+	// Au chargement de la page, on récupère l'historique stocké dans le navigateur
+	onMount(() => {
+		const storedMessages = localStorage.getItem(STORAGE_KEY);
+
+		if (storedMessages) {
+			messages = JSON.parse(storedMessages);
+		}
+	});
+
+	// Met à jour les messages dans l'interface et dans le localStorage
+	function saveMessages(nextMessages: ChatMessage[]) {
+		messages = nextMessages;
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(nextMessages));
+	}
+
+	// Envoie le message utilisateur au serveur
+	async function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
+
+		const cleanMessage = message.trim();
+
+		// On évite les messages vides et les doubles envois
+		if (!cleanMessage || isLoading) {
+			return;
+		}
+
+		errorMessage = '';
+
+		const userMessage: ChatMessage = {
+			role: 'user',
+			content: cleanMessage
+		};
+
+		const previousMessages = messages;
+
+		// On affiche directement le message utilisateur
+		saveMessages([...previousMessages, userMessage]);
+
+		message = '';
+		isLoading = true;
+
+		try {
+			const result = (await sendMessage({
+				message: cleanMessage,
+
+				// On envoie seulement les derniers messages au serveur
+				// pour donner un peu de contexte à l'IA sans tout stocker en cookie
+				history: previousMessages.slice(-8)
+			})) as { assistantMessage: string };
+
+			if (result.assistantMessage) {
+				const assistantMessage: ChatMessage = {
+					role: 'assistant',
+					content: result.assistantMessage
+				};
+
+				saveMessages([...previousMessages, userMessage, assistantMessage]);
+			}
+		} catch (error) {
+			errorMessage = "Une erreur est survenue pendant l'envoi du message.";
+			console.error(error);
+		} finally {
+			isLoading = false;
+		}
+	}
+
+	// Vide uniquement l'historique local du navigateur
+	function clearChat() {
+		saveMessages([]);
+		errorMessage = '';
+	}
 </script>
 
-<div class="min-h-screen bg-[#0D1624] px-10 py-8 pb-40 text-white">
-	<h1 class="mb-8 text-4xl font-bold tracking-tight text-white">Chat</h1>
+<header>
+	<h1>ECV Chat</h1>
+</header>
 
-	{#each messages as message}
-		<div class={`mb-5 flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-			<div
-				class={`max-w-[620] rounded-2xl pb-2 pr-3 pl-3 shadow-lg ${
-					message.role === 'user'
-						? 'bg-[#245a9b] text-white'
-						: 'bg-[#172234] text-slate-100'
-				}`}
-			>
-				<span
-					class={`mb-2 block text-xs font-semibold uppercase tracking-wider ${
-						message.role === 'user' ? 'text-blue-100' : 'text-blue-300'
-					}`}
-				>
-				</span>
+<main>
+	<ul class="messages">
+		{#each messages as message}
+			<li class="message {message.role} prose">
+				{@html marked.parse(message.content)}
+			</li>
+		{/each}
 
-				{#if message.role === 'assistant'}
-					<div class="prose prose-invert max-w-none leading-relaxed">
-						{@html marked(message.content)}
-					</div>
-				{:else}
-					<p class="leading-relaxed">
-						{message.content}
-					</p>
-				{/if}
-			</div>
-		</div>
-	{/each}
+		{#if isLoading}
+			<li class="message assistant prose">
+				<p>Je réfléchis...</p>
+			</li>
+		{/if}
+	</ul>
 
-	<form
-		class="fixed right-10 bottom-8 left-10 z-10 flex gap-3 rounded-2xl bg-[#111C2D] p-4"
-		{...sendMessage.enhance(async (instance) => {
-			const userMessage = { role: 'user' as const, content: instance.data.message };
-			instance.form.reset();
-			await instance.submit().updates(
-				chat.withOverride((messages) => [...messages, userMessage])
-			);
-		})}
-	>
-		<label class="flex flex-1 flex-col gap-2">
-			<span class="text-sm font-medium text-slate-300">Message</span>
+	{#if errorMessage}
+		<p class="error">{errorMessage}</p>
+	{/if}
 
-			<input
-				class="rounded-xl border border-white/10 bg-[#0B1220] px-4 py-3 text-white placeholder:text-slate-500 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
-				name="message"
-				type="text"
-				required
-				minlength="1"
-				autocomplete="off"
-				placeholder="Écris ton message ici..."
-			/>
-		</label>
+	<form onsubmit={handleSubmit}>
+		<input
+			bind:value={message}
+			name="message"
+			type="text"
+			placeholder="Ask me anything..."
+			required
+			minlength="1"
+			autocomplete="off"
+		/>
 
-		<button
-			class="mt-7 rounded-xl bg-[#00949d] px-6 py-3 font-semibold text-white shadow-lg shadow-[#72d3cf]/25 hover:bg-[#00849a]"
-		>
-			Send
+		<button type="submit" disabled={isLoading}>
+			{isLoading ? 'Sending...' : 'Send'}
 		</button>
 
-		<button
-			class="mt-7 w-fit rounded-lg px-3 text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-300"
-			onclick={() => clearChat()}
-		>
+		<button type="button" onclick={clearChat}>
 			Clear
 		</button>
 	</form>
-</div>
+</main>
+
+<style>
+	header {
+		padding: 1rem;
+		background-color: black;
+		color: white;
+	}
+
+	main {
+		display: grid;
+		grid-template-rows: 1fr auto;
+		gap: 1rem;
+		padding: 1rem;
+		flex: 1;
+		justify-content: stretch;
+	}
+
+	ul.messages {
+		list-style: none;
+		padding: 0;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+		max-width: 960px;
+		width: 100%;
+
+		li {
+			padding: 1rem;
+			border-radius: 0.5rem;
+			background-color: white;
+			max-width: min(65ch, 80%);
+
+			&.user {
+				background-color: #f0f0f0;
+				align-self: flex-end;
+			}
+		}
+	}
+
+	form {
+		display: grid;
+		grid-template-columns: 1fr auto auto;
+		gap: 1rem;
+		position: sticky;
+		bottom: 0;
+		padding: 1rem;
+		background: rgba(255, 255, 255, 0.1);
+		backdrop-filter: blur(10px);
+		border-top: 1px solid rgba(255, 255, 255, 0.2);
+	}
+
+	.error {
+		max-width: 960px;
+		margin: 0 auto;
+		color: crimson;
+	}
+</style>
